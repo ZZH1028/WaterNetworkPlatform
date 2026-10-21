@@ -2,31 +2,32 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#081311"><meta name="description" content="澜枢 · 平原感潮河网实景三维、专业知识检索与调度研判工作台">
+<meta name="theme-color" content="#05080e"><meta name="description" content="澜枢 · 平原感潮河网实景三维、专业知识检索与调度研判工作台">
 <title>澜枢 · 平原感潮河网智能平台</title>
-<link rel="icon" href="./assets/mark.svg" type="image/svg+xml">
+<link rel="icon" href="./assets/hhu-emblem.png" type="image/png">
 <link rel="stylesheet" href="./vendor/cesium/Widgets/widgets.css"><link rel="stylesheet" href="./style.css">
 <script>window.CESIUM_BASE_URL='./vendor/cesium/';</script>
 <script defer src="./vendor/cesium/Cesium.js"></script>
 <script type="module" src="./app.js"></script>
 </head>
 <body>
-<div id="boot"><img src="./assets/mark.svg" alt="澜枢"><h2>连接河流的每一种可能</h2><p>正在加载水网工作台…</p><noscript>请开启浏览器 JavaScript 后访问。</noscript></div>
+<div id="boot"><img src="./assets/hhu-emblem.png" alt="河海大学校徽"><h2>连接河流的每一种可能</h2><p>正在加载水网工作台…</p><noscript>请开启浏览器 JavaScript 后访问。</noscript></div>
 <div id="app" hidden>
 <aside class="sidebar" id="sidebar">
- <a class="brand" href="#overview"><img src="./assets/mark.svg" alt=""><span>澜枢 <small>HYDRO INTELLIGENCE</small></span><b>2.0</b></a>
+ <a class="brand" href="#overview"><img src="./assets/hhu-emblem.png" alt="河海大学校徽"><span>澜枢 <small>河海大学 · 水网研究</small></span><b>2.1</b></a>
  <div class="workspace"><span class="workspace-icon">吴</span><span>新吴河网研究区域<small>PLAIN · TIDAL RIVER NETWORK</small></span><span class="tiny">⌄</span></div>
  <div class="nav-label">工作空间 <small>WORKSPACE</small></div>
  <nav id="navigation" aria-label="主导航"></nav>
  <div class="side-bottom"><div class="research-label"><span class="status-dot"></span>科研与演示环境</div><p>真实 GIS 底座 · 可溯源知识<br>让感知、认知与决策相连接</p><button id="open-guide" class="side-guide">操作指引 <span>↗</span></button><div class="profile"><span class="avatar">研</span><span>河网研究工作台<small>本地工作空间 · 自动保存</small></span><button id="settings-shortcut" aria-label="设置">⚙</button></div></div>
 </aside>
 <div class="main-shell">
-<header class="topbar"><div class="crumb"><button id="menu-toggle" aria-label="展开导航">☰</button><span>水网智能平台</span><i>/</i><strong id="breadcrumb">运行总览</strong></div><div class="top-actions"><span class="clock" id="clock"></span><button class="icon-button" id="search-trigger" aria-label="搜索站点">⌕</button><button class="icon-button" id="alerts-trigger" aria-label="预警中心">♧<i></i></button><span class="top-divider"></span><span class="avatar small">研</span></div></header>
+<header class="topbar"><div class="crumb"><button id="menu-toggle" aria-label="展开导航">☰</button><span>河海大学 · 水网智能平台</span><i>/</i><strong id="breadcrumb">运行总览</strong></div><div class="top-actions"><a href="#monitoring" class="connection-badge" id="connection-badge"><span class="status-dot"></span><span>数据待接入</span></a><span class="clock" id="clock"></span><button class="icon-button" id="search-trigger" aria-label="搜索站点">⌕</button><button class="icon-button" id="alerts-trigger" aria-label="预警中心"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v6l2 3H4l2-3V9z M10 21h4"/></svg></button><span class="top-divider"></span><span class="avatar small">研</span></div></header>
 <main id="main" tabindex="-1"></main>
 <footer class="footer"><span>澜枢 HYDRO INTELLIGENCE <i>·</i> 平原感潮河网协同研究</span><span id="footer-status">GIS 静态资料 · 水情演示 · 无执行设备连接</span></footer>
 </div>
 <button id="floating-ai" class="floating-ai" aria-label="打开水利 AI 助手"><span>✧</span> 水利助手</button>
 </div>
+<div id="risk-notice-stack" aria-live="assertive"></div>
 <dialog id="dialog"><button id="dialog-close" class="dialog-close" aria-label="关闭">×</button><div id="dialog-body"></div></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 </body></html>

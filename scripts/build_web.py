@@ -1,6 +1,6 @@
 """Reproducible static build, including pinned, locally served browser libraries."""
 from __future__ import annotations
-import argparse, csv, gzip, io, json, shutil, tarfile, urllib.request
+import argparse, csv, gzip, hashlib, io, json, re, shutil, tarfile, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +49,17 @@ def build(out: Path, vendor=True):
         catalog['manualCount']=len(corpus['sources']);catalog['manualPages']=corpus['pages']
         catalog['manualChunks']=len(corpus['documents'])
     (out/'data/knowledge.json').write_text(json.dumps(catalog,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+    # Version all application URLs so previously opened Pages clients receive the new theme.
+    digest=hashlib.sha256()
+    for path in sorted((ROOT/'web').rglob('*')):
+        if path.is_file():digest.update(path.relative_to(ROOT/'web').as_posix().encode());digest.update(path.read_bytes())
+    digest.update((out/'data/knowledge.json').read_bytes())
+    revision=digest.hexdigest()[:12]
+    for path in [*(out.glob('*.html')),*(out.glob('*.js')),*(out.glob('*.css'))]:
+        content=path.read_text(encoding='utf-8')
+        content=re.sub(r'''(["'])\./([A-Za-z0-9_./-]+\.(?:js|mjs|css|svg|png|json))\1''',lambda m:m[1]+'./'+m[2]+'?v='+revision+m[1],content)
+        path.write_text(content,encoding='utf-8')
+    (out/'build.json').write_text(json.dumps({'revision':revision,'version':'2.1.0','theme':'midnight-blue-black'}),encoding='utf-8')
     (out/'.nojekyll').touch()
     if vendor:
         cache = ROOT/'.web-cache'
