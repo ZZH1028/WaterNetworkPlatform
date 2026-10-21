@@ -772,7 +772,7 @@ def research_footer(version: str) -> None:
     st.markdown(
         f"""
         <div class="research-footer">
-          <span>河海大学 · 水网工程水力调控智能平台</span>
+          <span>澜枢——水网工程水力调控智能平台</span>
           <span>{html.escape(version)} · 数据与模型结果仅用于研究和功能验证</span>
         </div>
         """,

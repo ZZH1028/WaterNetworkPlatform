@@ -14,7 +14,7 @@ sources=[
  ('USGS-SALT','USGS · 咸淡水界面与盐水入侵研究','https://pubs.usgs.gov/publication/sir20255090/full','专业资料'),
  ('WMO','WMO · 水文预报检验指南介绍','https://public.wmo.int/media/news/wmo-issues-guidelines-verification-of-hydrological-forecasts','专业资料'),
  ('ENGINEERING','平台工程笔记 · 基本理论与研究方法',None,'工程笔记'),
- ('PLATFORM','澜枢 2.1 · 平台操作手册',None,'平台手册'),
+ ('PLATFORM','澜枢——水网工程水力调控智能平台 2.1 · 平台操作手册',None,'平台手册'),
  ('PROJECT','用户原项目 · GIS 与演示模型说明',None,'项目资料'),
 ]
 notes=[

@@ -5,8 +5,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
-APP_NAME = os.getenv("APP_NAME", "水网工程水力调控智能平台")
-APP_VERSION = os.getenv("APP_VERSION", "V1.0 河网一体化调度大屏版")
+APP_NAME = os.getenv("APP_NAME", "澜枢——水网工程水力调控智能平台")
+APP_VERSION = os.getenv("APP_VERSION", "V2.1 黑蓝指挥工作台版")
 APP_ENV = os.getenv("APP_ENV", "development")
 DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
 SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "true").lower() == "true"
