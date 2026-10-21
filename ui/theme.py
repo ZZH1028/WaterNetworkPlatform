@@ -781,6 +781,21 @@ def research_footer(version: str) -> None:
 
 
 def style_plotly_figure(fig: go.Figure, height: int = 380) -> go.Figure:
+    # Convert the legacy 2D time/comparison traces to genuine 3D geometry.
+    if fig.data and all(t.type in ('scatter', 'bar', 'scatterpolar') for t in fig.data):
+        original = fig
+        fig = go.Figure()
+        colors = ['#94d3a5', '#d7b577', '#87b8d2', '#c7a6d1']
+        for number, trace in enumerate(original.data):
+            if trace.type == 'scatterpolar':
+                xv = list(trace.theta); zv = list(trace.r)
+            else:
+                xv = list(trace.x) if trace.x is not None else []
+                zv = list(trace.y) if trace.y is not None else []
+            if not xv or not zv:
+                continue
+            fig.add_trace(go.Scatter3d(x=xv, y=[number]*len(xv), z=zv, mode='lines+markers', name=trace.name or f'序列{number+1}', line=dict(color=colors[number%len(colors)],width=5),marker=dict(size=3,color=colors[number%len(colors)])))
+        fig.update_layout(scene=dict(xaxis_title=original.layout.xaxis.title.text or '时间 / 指标', yaxis_title='数据序列', zaxis_title=original.layout.yaxis.title.text or '数值', bgcolor='#102319', xaxis=dict(gridcolor='#2c4a35'),yaxis=dict(gridcolor='#2c4a35'),zaxis=dict(gridcolor='#2c4a35'),camera=dict(eye=dict(x=1.6,y=1.4,z=1.1))))
     fig.update_layout(
         height=height,
         margin=dict(l=20, r=18, t=34, b=20),

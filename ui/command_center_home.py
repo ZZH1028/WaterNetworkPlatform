@@ -6,10 +6,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
-import folium
 import pandas as pd
 import streamlit as st
-from streamlit_folium import st_folium
+from ui.cesium_view import render_3d_map
 
 from core.config import BASE_DIR
 from services.alert_service import query_alerts
@@ -166,55 +165,6 @@ def inject_command_center_theme() -> None:
     )
 
 
-def _dark_home_map() -> folium.Map:
-    stations = load_gis_stations()
-    facilities = load_gate_pump_points()
-    center = [31.515, 120.425]
-    m = folium.Map(location=center, zoom_start=11, tiles=None, control_scale=False, zoom_control=True, attribution_control=False, prefer_canvas=True)
-    folium.TileLayer(
-        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attr='Esri World Imagery', name='卫星影像', show=True, overlay=False, max_zoom=19,
-    ).add_to(m)
-    folium.TileLayer('CartoDB dark_matter', name='深色底图', show=False, overlay=False).add_to(m)
-
-    geo = _GIS_DIR / 'river_network_full.geojson'
-    if not geo.exists():
-        geo = _GIS_DIR / 'river_network.geojson'
-    river_obj = None
-    if geo.exists():
-        river_obj = json.loads(geo.read_text(encoding='utf-8'))
-        full = geo.name == 'river_network_full.geojson'
-        folium.GeoJson(
-            river_obj, name='河网结构',
-            style_function=lambda f: {
-                'color':'#17d8ff' if int(f.get('properties',{}).get('section_count',2) or 2) < 5 else '#69f2ff',
-                'weight':2.4 if int(f.get('properties',{}).get('section_count',2) or 2) < 5 else 4.2,
-                'opacity':.88 if int(f.get('properties',{}).get('section_count',2) or 2) < 5 else 1,
-            },
-            highlight_function=lambda _: {'color':'#ffad43','weight':6,'opacity':1},
-            tooltip=folium.GeoJsonTooltip(fields=['name','section_count'], aliases=['河道','断面数'], sticky=False) if full else folium.GeoJsonTooltip(fields=['name'], aliases=['河道']),
-        ).add_to(m)
-        if full:
-            features=river_obj.get('features',[])
-            for feature in sorted(features,key=lambda f:int(f.get('properties',{}).get('section_count',0)),reverse=True)[:14]:
-                coords=feature.get('geometry',{}).get('coordinates',[])
-                if not coords: continue
-                lon,lat=coords[len(coords)//2]
-                name=str(feature.get('properties',{}).get('name',''))
-                folium.Marker([lat,lon], icon=folium.DivIcon(icon_size=(86,20), icon_anchor=(43,10), html=f'<div style="white-space:nowrap;text-align:center;color:#f3fdff;font-size:10px;font-weight:700;text-shadow:0 1px 5px #000;background:rgba(0,13,18,.38);padding:1px 4px;border-radius:4px">{name}</div>')).add_to(m)
-            all_coords=[c for f in features for c in f.get('geometry',{}).get('coordinates',[]) if isinstance(c,list) and len(c)>=2]
-            if all_coords:
-                lons=[c[0] for c in all_coords]; lats=[c[1] for c in all_coords]
-                m.fit_bounds([[min(lats),min(lons)],[max(lats),max(lons)]], padding=(8,8))
-
-    for item in stations:
-        folium.CircleMarker([item['lat'],item['lng']], radius=4, color='#c4fbff', weight=1, fill=True, fill_color='#12d6f4', fill_opacity=.92, tooltip=f"{item['station_name']}（{item['station_id']}）").add_to(m)
-    for item in facilities:
-        folium.CircleMarker([item['lat'],item['lng']], radius=5.2, color='#ffe8ad', weight=1, fill=True, fill_color='#ff9b2f', fill_opacity=.97, tooltip=f"{item['facility_name']}（{item['facility_id']}）").add_to(m)
-    folium.LayerControl(collapsed=True,position='topright').add_to(m)
-    return m
-
-
 def _safe_float(value, default=0.0) -> float:
     try:
         if pd.isna(value):
@@ -314,9 +264,9 @@ def render_command_center_home(set_public_page) -> None:
             st.area_chart(plot.set_index("monitor_time"), height=155, color="#20c8ff")
 
     with center:
-        st.markdown('<div class="cc-panel-title">河网 GIS 一张图 <span>GIS COMMAND MAP</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="cc-panel-title">河网 三维实景一张图 <span>GIS COMMAND MAP</span></div>', unsafe_allow_html=True)
         st.markdown('<div class="cc-map-frame">', unsafe_allow_html=True)
-        st_folium(_dark_home_map(), height=470, use_container_width=True, key="command_center_home_map")
+        render_3d_map(height=470)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with right:

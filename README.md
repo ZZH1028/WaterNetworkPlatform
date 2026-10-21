@@ -1,3 +1,28 @@
+# 澜枢 · 平原感潮河网智能平台 2.0
+
+三维卫星影像与地形、真实河网 GIS、断面三维查看、水利知识检索与操作助手、监测导入、情景推演、方案比选和本地备份。
+
+- 新版源代码：`web/`；可复现构建：`scripts/build_web.py`。
+- 专业知识：44 条中文笔记 + 5 部官方技术手册，1,753 页 / 3,477 个英文原文片段。支持 PDF、DOCX、TXT、MD、JSON、CSV 导入和引用溯源。
+- 默认 AI 为可直接使用的本地检索；生成式解释通过 `api/server.py` 接入服务器配置的大模型。
+- 所有 GIS 地图入口改为 Cesium 三维实景；原业务后台保留并加入水利助手。
+- 默认水情和推演明确为演示，不冒充实时数据或实测模型结果。
+
+完整启动、GitHub Pages 首次开通、模型连接和适用边界见 [部署说明](docs/V2_DEPLOYMENT.md)。
+
+```bash
+python -m pip install 'pypdf>=5,<7'
+python scripts/ingest_public_manuals.py
+python scripts/build_web.py
+python api/server.py
+```
+
+打开 http://127.0.0.1:8000 。GitHub Actions 会自动构建，仓库管理员首次需在 Settings → Pages 中将发布源设为 GitHub Actions。
+
+---
+
+<details><summary>V1.0 项目说明（保留供参考）</summary>
+
 # 水网工程水力调控智能平台 V1.0 指挥大屏首页版
 
 本版本基于 V1.0 公网展示版升级：**核心后台和数据逻辑不删除，只重构公开首页为水利指挥中心/数字孪生大屏风格**。首页中间直接加载真实 GIS 河网，左右展示实时水情与预警，下方提供现有功能的一键入口。
@@ -37,3 +62,5 @@
 登录后完整保留数据中心、监测图表、预测、调度、预警、模型、用户、日志、备份恢复等 V1.0 功能。
 
 详见 `公网部署说明_V1.0.md`。
+
+</details>

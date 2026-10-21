@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {csvParse,validateObservations,demoSeries,escapeHTML} from '../web/store.js';
+import {KnowledgeIndex,localAnswer} from '../web/knowledge.js';
+const catalog=JSON.parse(await readFile(new URL('../knowledge/catalog.json',import.meta.url),'utf8'));
+const stations=[{id:'1'}];
+const valid={station_id:'1',monitor_time:'2026-10-21T08:00:00+08:00',water_level:3.8,datum:'吴淞高程'};
+test('CSV correctly reads quoted comma and escaped quote',()=>{assert.deepEqual(csvParse('id,name\n1,"a,b"\n2,"a""b"'),[{id:'1',name:'a,b'},{id:'2',name:'a"b'}]);});
+test('monitor import rejects unknown stations, duplicate records and incompatible datum',()=>{assert.throws(()=>validateObservations([{...valid,station_id:'2'}],stations));assert.throws(()=>validateObservations([valid,valid],stations));assert.throws(()=>validateObservations([{...valid,datum:'WGS84'}],stations));assert.throws(()=>validateObservations([{...valid,monitor_time:'2026-10-21 08:00'}],stations));assert.equal(validateObservations([valid],stations)[0].monitor_time,'2026-10-21T00:00:00.000Z');});
+test('tidal boundary question retrieves dedicated hydrodynamic guidance',()=>{const index=new KnowledgeIndex(catalog);assert.equal(index.search('感潮河网下游水位过程边界怎么设置')[0].id,'K003');});
+test('unknown topic returns explicit lack of evidence',()=>{const index=new KnowledgeIndex(catalog);assert.equal(localAnswer('zxqv123456',index).hits.length,0);});
+test('user document becomes retrievable with unverified provenance',()=>{const imported={id:'U1-1',title:'测试盐度取水规程',keywords:'盐度 电导率',content:'盐度监测超过项目给定值时，应复核取水窗口。',category:'用户导入',origin:'用户导入 / 未核验'};const idx=new KnowledgeIndex(catalog,[imported]);assert.ok(idx.search('测试盐度取水规程').some(d=>d.id==='U1-1'));assert.equal(escapeHTML('<script>'),'&lt;script&gt;');});
+test('simulation exports stable hourly values and stronger pump lowers end level',()=>{const a=demoSeries(0,{pump:0}),b=demoSeries(0,{pump:1});assert.equal(a.length,25);assert.equal(a[0].hour,0);assert.equal(a.at(-1).hour,24);assert.ok(b.at(-1).level<a.at(-1).level);assert.deepEqual(a,demoSeries(0,{pump:0}));});

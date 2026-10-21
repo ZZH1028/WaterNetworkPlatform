@@ -4,13 +4,12 @@ from datetime import datetime
 from pathlib import Path
 import json
 
-import folium
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from PIL import Image
-from streamlit_folium import st_folium
+from ui.cesium_view import render_3d_map
 
 from core.config import APP_NAME, APP_VERSION, DEMO_MODE, SEED_DEMO_DATA, BASE_DIR, BACKUP_DIR
 from database.init_db import initialize_database
@@ -35,6 +34,7 @@ from ui.public_site import (
     render_digital_twin, render_capabilities, render_architecture, render_about, public_footer,
 )
 from ui.command_center_home import render_command_center_home
+from ui.knowledge_assistant import render_knowledge_assistant
 
 LOGO = Image.open(BASE_DIR/'assets'/'hhu_logo.png')
 st.set_page_config(page_title=APP_NAME,page_icon=LOGO,layout='wide',initial_sidebar_state='expanded')
@@ -49,11 +49,14 @@ ROLE_PERMISSIONS={
  '查看用户':set(),
 }
 ROLE_PAGES={
- '管理员':['平台首页','河网GIS地图','数据中心','监测图表','水动力预测','智能调度','方案比较','预警中心','模型管理','系统管理'],
- '科研人员':['平台首页','河网GIS地图','数据中心','监测图表','水动力预测','智能调度','方案比较','模型管理'],
- '调度人员':['平台首页','河网GIS地图','监测图表','水动力预测','智能调度','方案比较','预警中心'],
- '查看用户':['平台首页','河网GIS地图','监测图表','方案比较','预警中心'],
+ '管理员':['平台首页','河网三维实景','数据中心','监测图表','水动力预测','智能调度','方案比较','预警中心','模型管理','系统管理'],
+ '科研人员':['平台首页','河网三维实景','数据中心','监测图表','水动力预测','智能调度','方案比较','模型管理'],
+ '调度人员':['平台首页','河网三维实景','监测图表','水动力预测','智能调度','方案比较','预警中心'],
+ '查看用户':['平台首页','河网三维实景','监测图表','方案比较','预警中心'],
 }
+
+for role_pages in ROLE_PAGES.values():
+    role_pages.insert(role_pages.index('监测图表') + 1, '水利AI助手')
 
 def user(): return st.session_state.get('user',{})
 def username(): return user().get('username','anonymous')
@@ -105,111 +108,6 @@ def banner():
     research_banner(('演示环境' if DEMO_MODE else '正式数据环境')+'。已整合多人权限、质量校验、备份恢复、实测GIS参考数据、GIS联动预测与约束调度；当前水动力计算核心仍为可替换的演示模型。')
 
 
-def build_map(latest, include_reference: bool = False):
-    """GIS map with a full 110-river structural layer and command-center styling."""
-    center = [31.515, 120.425]
-    m = folium.Map(location=center, zoom_start=11, tiles=None, control_scale=True, prefer_canvas=True)
-    folium.TileLayer(
-        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attr='Esri World Imagery', name='卫星影像', overlay=False, control=True, show=True, max_zoom=19,
-    ).add_to(m)
-    folium.TileLayer('CartoDB dark_matter', name='深色底图', overlay=False, control=True, show=False).add_to(m)
-
-    full_geo = BASE_DIR/'data'/'gis'/'river_network_full.geojson'
-    fallback_geo = BASE_DIR/'data'/'gis'/'river_network.geojson'
-    geo = full_geo if full_geo.exists() else fallback_geo
-    river_obj = None
-    if geo.exists():
-        river_obj = json.loads(geo.read_text(encoding='utf-8'))
-        folium.GeoJson(
-            river_obj,
-            name='完整河网结构' if geo == full_geo else '河网结构',
-            style_function=lambda f: {
-                'color': '#14d8ff' if int(f.get('properties',{}).get('section_count',2) or 2) < 5 else '#55f1ff',
-                'weight': 2.6 if int(f.get('properties',{}).get('section_count',2) or 2) < 5 else 4.4,
-                'opacity': .84 if int(f.get('properties',{}).get('section_count',2) or 2) < 5 else .98,
-            },
-            highlight_function=lambda _: {'color':'#ffad43','weight':6,'opacity':1},
-            tooltip=folium.GeoJsonTooltip(
-                fields=['name','section_count'], aliases=['河道名称','断面数'], sticky=False,
-                style=('background:rgba(5,18,27,.94);color:#f2fbff;border:1px solid #23c8ef;'
-                       'border-radius:8px;padding:6px 8px;font-size:13px;')
-            ) if geo == full_geo else folium.GeoJsonTooltip(fields=['name'],aliases=['河道名称']),
-        ).add_to(m)
-
-        if geo == full_geo:
-            features = river_obj.get('features', [])
-            # Always-visible labels for the principal waterways, so the river structure is readable at a glance.
-            for feature in sorted(features, key=lambda f: int(f.get('properties',{}).get('section_count',0)), reverse=True)[:18]:
-                coords = feature.get('geometry',{}).get('coordinates',[])
-                if not coords:
-                    continue
-                lon, lat = coords[len(coords)//2]
-                name = str(feature.get('properties',{}).get('name',''))
-                folium.Marker(
-                    [lat, lon],
-                    icon=folium.DivIcon(
-                        icon_size=(92,22), icon_anchor=(46,11),
-                        html=f'<div style="white-space:nowrap;text-align:center;color:#e9fdff;font-size:11px;font-weight:700;text-shadow:0 1px 4px #000,0 0 6px #005d73;background:rgba(1,20,27,.38);padding:2px 5px;border-radius:5px;border:1px solid rgba(46,210,241,.18)">{name}</div>'
-                    ),
-                    tooltip=name,
-                ).add_to(m)
-            all_coords = [c for f in features for c in f.get('geometry',{}).get('coordinates',[]) if isinstance(c,list) and len(c)>=2]
-            if all_coords:
-                lons=[c[0] for c in all_coords]; lats=[c[1] for c in all_coords]
-                m.fit_bounds([[min(lats),min(lons)],[max(lats),max(lons)]], padding=(12,12))
-
-    db_group = folium.FeatureGroup(name='数据库监测站', show=True)
-    for r in latest.itertuples(index=False):
-        if pd.isna(r.longitude) or pd.isna(r.latitude):
-            continue
-        warning = pd.notna(r.water_level) and pd.notna(r.warning_level) and float(r.water_level) >= float(r.warning_level)
-        color = '#ff9f32' if warning else ('#21dbff' if r.station_type == '水位站' else '#2ce2a3')
-        level = '暂无水位' if pd.isna(r.water_level) else f'{float(r.water_level):.2f} m'
-        folium.CircleMarker(
-            [r.latitude,r.longitude], radius=7, color='#dffaff', weight=1.5, fill=True,
-            fill_color=color, fill_opacity=.96, tooltip=f'{r.station_id} {r.station_name}',
-            popup=f'<div style="font-size:13px"><b>{r.station_name}</b><br>最新水位：{level}<br>时间：{r.monitor_time or "—"}</div>'
-        ).add_to(db_group)
-    db_group.add_to(m)
-
-    with session_scope() as sess:
-        gates = sess.scalars(select(Gate)).all()
-        pumps = sess.scalars(select(PumpStation)).all()
-    facility_group = folium.FeatureGroup(name='数据库闸泵', show=True)
-    for r in gates:
-        folium.CircleMarker([r.latitude,r.longitude], radius=6, color='#ffe3a9', weight=1.5, fill=True, fill_color='#ff9f32', fill_opacity=.95, tooltip=r.gate_name, popup=f'{r.gate_name}<br>开度：{r.current_opening}%').add_to(facility_group)
-    for r in pumps:
-        folium.CircleMarker([r.latitude,r.longitude], radius=6, color='#d7e3ff', weight=1.5, fill=True, fill_color='#6d7cff', fill_opacity=.95, tooltip=r.pump_name, popup=f'{r.pump_name}<br>流量：{r.current_flow} m³/s').add_to(facility_group)
-    facility_group.add_to(m)
-
-    if include_reference:
-        existing_ids = set(latest['station_id'].astype(str)) if not latest.empty and 'station_id' in latest.columns else set()
-        station_group = folium.FeatureGroup(name='实测监测站', show=True)
-        for item in load_gis_stations():
-            if item['station_id'] in existing_ids:
-                continue
-            folium.CircleMarker(
-                [item['lat'], item['lng']], radius=4.5, color='#b8f8ff', weight=1,
-                fill=True, fill_color='#17cde8', fill_opacity=.90,
-                tooltip=f"{item['station_id']} {item['station_name']}",
-                popup=f"<b>{item['station_name']}</b><br>站号：{item['station_id']}<br>坐标系：WGS84"
-            ).add_to(station_group)
-        station_group.add_to(m)
-
-        ref_facility_group = folium.FeatureGroup(name='实测闸泵设施', show=True)
-        for item in load_gate_pump_points():
-            folium.CircleMarker(
-                [item['lat'], item['lng']], radius=5.5, color='#ffe6ad', weight=1,
-                fill=True, fill_color='#ff9b2f', fill_opacity=.96, tooltip=item['facility_name'],
-                popup=f"{item['facility_name']}<br>编号：{item['facility_id']}<br>数据源：gate_pump.txt"
-            ).add_to(ref_facility_group)
-        ref_facility_group.add_to(m)
-
-    folium.LayerControl(collapsed=True, position='topright').add_to(m)
-    return m
-
-
 def dashboard():
     page_header('平台首页','多人协作环境下的河网运行、监测数据、预警与任务总览'); banner(); refresh_threshold_alerts(); stats=get_dashboard_statistics()
     cols=st.columns(6)
@@ -219,7 +117,7 @@ def dashboard():
     st.caption(f'数据库最新数据时间：{get_latest_data_time()}')
     latest=get_latest_station_levels(); left,right=st.columns([1.4,.6],gap='large')
     with left:
-        section_label('河网运行态势'); st_folium(build_map(latest),height=450,use_container_width=True,key='dashmap')
+        section_label('河网运行态势'); render_3d_map(latest,height=450)
     with right:
         section_label('实时指标'); water=latest[latest.station_type=='水位站'].dropna(subset=['water_level'])
         if not water.empty:
@@ -238,7 +136,7 @@ def dashboard():
 
 
 def map_page():
-    page_header('河网GIS地图','数据库运行数据 + 新吴实测站点、闸泵与河道断面参考数据')
+    page_header('河网三维实景','数据库运行数据 + 新吴实测站点、闸泵与河道断面参考数据')
     summary = get_gis_summary()
     cols = st.columns(5)
     metrics = [
@@ -249,7 +147,7 @@ def map_page():
     for c, (label, value) in zip(cols, metrics):
         with c: st.metric(label, value)
     latest = get_latest_station_levels()
-    st_folium(build_map(latest, include_reference=True), height=680, use_container_width=True, key='map')
+    render_3d_map(latest,height=680)
     with st.expander('查看数据库监测站最新数据'):
         st.dataframe(latest, use_container_width=True, hide_index=True)
     st.caption('river.txt 为新吴本地平面坐标系断面数据，不直接按经纬度叠加到 Folium 地图；已保留为模型输入和后续坐标转换/断面分析数据。')
@@ -499,7 +397,7 @@ def _set_public_page(page_name: str, backend_target: str | None = None) -> None:
 
 def public_portal() -> None:
     public_topbar()
-    public_pages = ['首页','平台概览','GIS全景','数字孪生','智能能力','技术架构','关于平台','登录平台']
+    public_pages = ['首页','平台概览','GIS全景','数字孪生','智能能力','技术架构','关于平台','水利AI助手','登录平台']
     current = st.session_state.get('public_page','首页')
     if current not in public_pages:
         current = '首页'
@@ -513,7 +411,7 @@ def public_portal() -> None:
     elif page == '平台概览':
         render_overview()
     elif page == 'GIS全景':
-        render_gis(build_map)
+        render_gis()
     elif page == '数字孪生':
         render_digital_twin()
     elif page == '智能能力':
@@ -522,6 +420,8 @@ def public_portal() -> None:
         render_architecture()
     elif page == '关于平台':
         render_about()
+    elif page == '水利AI助手':
+        render_knowledge_assistant()
     elif page == '登录平台':
         login()
     public_footer()
@@ -548,4 +448,4 @@ with st.sidebar:
         st.session_state['public_page']='首页'
         st.rerun()
 
-{'平台首页':dashboard,'河网GIS地图':map_page,'数据中心':data_page,'监测图表':monitoring,'水动力预测':prediction,'智能调度':scheduling,'方案比较':compare,'预警中心':alerts,'模型管理':models,'系统管理':system}[page]()
+{'水利AI助手':render_knowledge_assistant,'平台首页':dashboard,'河网三维实景':map_page,'数据中心':data_page,'监测图表':monitoring,'水动力预测':prediction,'智能调度':scheduling,'方案比较':compare,'预警中心':alerts,'模型管理':models,'系统管理':system}[page]()

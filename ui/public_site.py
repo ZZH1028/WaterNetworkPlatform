@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from streamlit_folium import st_folium
+from ui.cesium_view import render_3d_map
 
 from core.config import APP_NAME, APP_VERSION, BASE_DIR
 from services.data_service import (
@@ -206,7 +206,7 @@ def render_home(set_public_page) -> None:
     _capability_cards()
     _section("OPERATION LOOP", "六阶段运行闭环", "让数据、模型与调度不再分散在不同工具中，而是在统一平台内形成连续的决策过程。")
     st.markdown("""<div class="public-flow"><div class="public-flow-step"><strong>01 数据接入</strong><span>水位 / 流量 / 降雨 / 潮位 / GIS / 设施</span></div><div class="public-flow-step"><strong>02 质量治理</strong><span>逐行校验 / 重复识别 / 留痕</span></div><div class="public-flow-step"><strong>03 GIS 感知</strong><span>二维地图 / 三维断面 / 工程定位</span></div><div class="public-flow-step"><strong>04 模型预测</strong><span>水位 / 流量 / 风险 / 超警戒时长</span></div><div class="public-flow-step"><strong>05 智能调度</strong><span>多目标权重 / 运行约束 / 候选方案</span></div><div class="public-flow-step"><strong>06 审核闭环</strong><span>人工推荐 / 预警处置 / 日志 / 备份</span></div></div>""", unsafe_allow_html=True)
-    st.markdown('<div class="public-note">当前版本已经具备公开 Web 门户、二维 GIS、真实断面三维展示、业务后台和多人部署能力。水动力预测与调度计算核心仍为可替换的演示模型，工程化应用时应接入经过验证的专业模型和实时数据接口。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="public-note">当前版本已经具备公开 Web 门户、三维实景 GIS、真实断面三维展示、业务后台和多人部署能力。水动力预测与调度计算核心仍为可替换的演示模型，工程化应用时应接入经过验证的专业模型和实时数据接口。</div>', unsafe_allow_html=True)
 
 
 def render_overview() -> None:
@@ -231,10 +231,10 @@ def render_overview() -> None:
         rain = get_rainfall_series(24); st.metric("24小时累计降雨", f"{rain.rainfall.sum():.1f} mm" if not rain.empty else "0.0 mm"); st.metric("GIS断面测点", f"{summary['section_point_count']:,}"); st.caption(f"最新业务数据时间：{get_latest_data_time()}")
 
 
-def render_gis(build_map) -> None:
-    _section("2D GIS PANORAMA", "河网 GIS 全景", "以卫星影像为底图展示完整河网结构、监测站与闸泵设施；河道按 110 条工程对象组织，重点河道名称常显，点击河线可查看结构信息。")
+def render_gis() -> None:
+    _section("3D REAL WORLD GIS", "河网 GIS 全景", "以卫星影像为底图展示完整河网结构、监测站与闸泵设施；河道按 110 条工程对象组织，重点河道名称常显，点击河线可查看结构信息。")
     summary = get_gis_summary(); _stat_cards([("实测监测站",summary["station_count"]),("闸泵设施",summary["facility_count"]),("河道数量",summary["river_count"]),("断面数量",summary["section_count"]),("断面测点",f"{summary['section_point_count']:,}")])
-    latest = get_latest_station_levels(); st_folium(build_map(latest, include_reference=True), height=650, use_container_width=True, key="public_gis_map")
+    latest = get_latest_station_levels(); render_3d_map(latest,height=650)
     st.caption("GIS 页新增完整河网结构展示层：由 river.txt 的工程平面坐标生成河道结构线并转换为 WGS84 展示坐标；断面原始工程坐标仍在“数字孪生”页面保留，用于三维断面分析。")
 
 
@@ -270,7 +270,7 @@ def render_digital_twin() -> None:
     _section("3D DIGITAL TWIN", "数字孪生 · 河网三维空间", "直接使用 river.txt 中的本地平面坐标与吴淞高程构建可旋转、缩放和悬停查询的三维河道断面点云。")
     df = _river_df()
     if df.empty: st.warning("暂无河道断面数据。"); return
-    st.markdown('<div class="public-twin-banner"><div class="twin-panel"><b>真实工程坐标</b><span>三维视图不把本地平面坐标伪装成经纬度，而是保留 PlaneX / PlaneY / 吴淞高程的数据含义。</span></div><div class="twin-panel"><b>二维 GIS + 三维断面互补</b><span>二维地图负责站点和设施地理定位；三维数字孪生负责查看河道、断面和高程空间结构。</span></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="public-twin-banner"><div class="twin-panel"><b>真实工程坐标</b><span>三维视图不把本地平面坐标伪装成经纬度，而是保留 PlaneX / PlaneY / 吴淞高程的数据含义。</span></div><div class="twin-panel"><b>实景三维 + 本地断面互补</b><span>实景三维负责站点和设施地理定位；三维数字孪生负责查看河道、断面和高程空间结构。</span></div></div>', unsafe_allow_html=True)
     rivers = sorted(df["reach_name"].dropna().unique().tolist())
     c1,c2,c3 = st.columns([1.1,1.1,.8])
     with c1: mode = st.selectbox("三维范围", ["全河网概览","按河道查看","按断面查看"])
@@ -316,7 +316,7 @@ def render_architecture() -> None:
 
 def render_about() -> None:
     _section("ABOUT", "关于平台", "V1.0 的目标是把原有“后台系统”提升为公开展示网站、数字孪生展示与业务平台一体化入口。")
-    st.markdown("""<div class="public-about"><h3>平台定位</h3><p>面向河网运行管理、科研验证、成果展示与决策支持，将多源水情、空间对象、预测结果、调度方案和管理流程统一到同一 Web 平台。</p><h3>公开网站</h3><p>包含正式首页、实时数据概览、二维 GIS、三维数字孪生、智能能力、技术架构和项目介绍；无需登录即可浏览。</p><h3>登录后的业务系统</h3><p>完整保留数据中心、监测图表、水动力预测、智能调度、方案比较、预警中心、模型管理、用户权限、操作日志和备份恢复。</p><h3>工程化扩展</h3><p>可继续接入实时接口、专业水动力模型、设备控制接口、时变水面与淹没范围三维动画，以及面向移动端的独立展示页面。</p></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="public-about"><h3>平台定位</h3><p>面向河网运行管理、科研验证、成果展示与决策支持，将多源水情、空间对象、预测结果、调度方案和管理流程统一到同一 Web 平台。</p><h3>公开网站</h3><p>包含正式首页、实时数据概览、三维实景 GIS、三维数字孪生、智能能力、技术架构和项目介绍；无需登录即可浏览。</p><h3>登录后的业务系统</h3><p>完整保留数据中心、监测图表、水动力预测、智能调度、方案比较、预警中心、模型管理、用户权限、操作日志和备份恢复。</p><h3>工程化扩展</h3><p>可继续接入实时接口、专业水动力模型、设备控制接口、时变水面与淹没范围三维动画，以及面向移动端的独立展示页面。</p></div>""", unsafe_allow_html=True)
 
 
 def public_footer() -> None:

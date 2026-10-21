@@ -1,0 +1,48 @@
+name: Build and deploy river platform
+on:
+  push:
+    branches: [master]
+    paths: ['web/**', 'scripts/**', 'knowledge/**', 'data/gis/**', 'tests/web.test.mjs', 'tests/test_rag_api.py', 'api/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/cache@v4
+        with:
+          path: .web-cache
+          key: river-assets-v2-${{ hashFiles('scripts/build_web.py', 'scripts/ingest_public_manuals.py') }}
+      - run: python -m pip install 'pypdf>=5,<7'
+      - run: python -m unittest discover -s tests -p test_rag_api.py -v
+      - run: node --test tests/web.test.mjs
+      - name: Index public technical manuals
+        run: python scripts/ingest_public_manuals.py
+      - name: Build locally served 3D engines and knowledge index
+        run: python scripts/build_web.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment
