@@ -28,6 +28,8 @@ streamlit run app.py
 
 首次开通需要仓库管理员操作。普通 `GITHUB_TOKEN` 不能替代管理员为尚未启用的仓库开通 Pages，不能把提交代码等同于网站已经发布。
 
+已启用 GitHub Actions 发布源。专业手册索引以已验证的压缩语料随仓库保存，构建无需重新下载手册；如需更新原文，可运行 `python scripts/ingest_public_manuals.py --refresh`，核验后重新生成压缩索引。
+
 之后推送 `master` 自动运行 `.github/workflows/pages.yml`：测试 → 拉取官方技术手册 → 按页建索引 → 构建本地三维资源 → 发布。无需向浏览器暴露大模型密钥。若首次部署在 Pages 配置处失败，开通后重跑失败作业即可。
 
 ## 大模型服务

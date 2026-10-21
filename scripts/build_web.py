@@ -1,6 +1,6 @@
 """Reproducible static build, including pinned, locally served browser libraries."""
 from __future__ import annotations
-import argparse, csv, io, json, shutil, tarfile, urllib.request
+import argparse, csv, gzip, io, json, shutil, tarfile, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,8 +42,9 @@ def build(out: Path, vendor=True):
     catalog=json.loads((ROOT/'knowledge/catalog.json').read_text(encoding='utf-8'))
     catalog['noteCount']=len(catalog['documents'])
     manuals=ROOT/'knowledge/manuals.json'
-    if manuals.exists():
-        corpus=json.loads(manuals.read_text(encoding='utf-8'))
+    shipped=ROOT/'knowledge/manuals.json.gz'
+    if shipped.exists() or manuals.exists():
+        corpus=json.loads(gzip.decompress(shipped.read_bytes())) if shipped.exists() else json.loads(manuals.read_text(encoding='utf-8'))
         catalog['sources'].extend(corpus['sources']);catalog['documents'].extend(corpus['documents'])
         catalog['manualCount']=len(corpus['sources']);catalog['manualPages']=corpus['pages']
         catalog['manualChunks']=len(corpus['documents'])

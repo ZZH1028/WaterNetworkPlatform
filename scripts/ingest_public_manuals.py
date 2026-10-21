@@ -1,6 +1,6 @@
 """Index public US government technical manuals by PDF page, without redistributing figures."""
 from __future__ import annotations
-import concurrent.futures, hashlib, json, re, urllib.request
+import concurrent.futures, gzip, hashlib, json, re, sys, urllib.request
 from pathlib import Path
 from pypdf import PdfReader
 ROOT=Path(__file__).resolve().parents[1]
@@ -32,6 +32,13 @@ def ingest(item):
     source={'id':sid,'title':title,'url':url,'type':'官方技术手册','pages':len(reader.pages),'sha256':hashlib.sha256(pdf.read_bytes()).hexdigest(),'retrieved':'2026-10-21','note':'US federal government technical publication; text extraction, excluding figures. Review third-party notices in the original for reuse.'}
     print(sid,source['pages'],'pages',len(docs),'chunks',flush=True);return source,docs
 def main():
+    shipped=ROOT/'knowledge/manuals.json.gz'
+    if shipped.exists() and '--refresh' not in sys.argv:
+        content=gzip.decompress(shipped.read_bytes());result=json.loads(content)
+        if len(result.get('sources',[]))<3 or not result.get('documents'):raise SystemExit('Invalid shipped corpus')
+        (ROOT/'knowledge/manuals.json').write_bytes(content)
+        print(json.dumps({'shipped':True,'manuals':len(result['sources']),'pages':result['pages'],'chunks':len(result['documents'])}),flush=True)
+        return
     sources=[];documents=[];failures=[]
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
         pending={pool.submit(ingest,m):m for m in MANUALS}
