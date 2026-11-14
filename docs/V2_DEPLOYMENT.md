@@ -1,4 +1,4 @@
-# 澜枢——水网工程水力调控智能平台 2.1 部署与验收说明
+# 澜枢——水网工程水力调控智能平台 2.2 部署与验收说明
 
 ## 两种运行方式
 
@@ -68,7 +68,7 @@ python api/server.py --host 0.0.0.0 --port 8000
 - 河道索引是原项目断面中心连线；投影假定 EPSG:4528 待复核，不能作精确岸线。
 - 断面保持原始本地平面坐标和吴淞高程；不直接与卫星地形高程混用。
 - 三维实景为 Esri 在线卫星影像 + World Elevation 地形，工程为符号。精细倾斜摄影需提供授权 3D Tiles。
-- 47 条中文编写知识与操作笔记，另按页索引 5 部官方技术手册：USACE HEC-RAS Hydraulic Reference、HEC-RAS 2D User Manual、NOAA Tidal Analysis、NOAA Tidal Datums、EPA SWMM 5.2 Manual。此次构建共 1,753 页、3,477 个原文片段。原文为英文，公式及表格请回 PDF 核查。
+- 49 条中文编写知识与操作笔记，另按页索引 5 部官方技术手册：USACE HEC-RAS Hydraulic Reference、HEC-RAS 2D User Manual、NOAA Tidal Analysis、NOAA Tidal Datums、EPA SWMM 5.2 Manual。此次构建共 1,753 页、3,477 个原文片段。原文为英文，公式及表格请回 PDF 核查。
 - USGS ADCP 手册下载遇 403，未纳入原文库；相关官方入口及中文测验笔记仍保留。目录的构建结果记录失败项，不能声称全量下载成功。
 - 水情监测默认待接入；尚无用户提供的实时数据源。启用接口后自动轮询，监测页的演示必须手动开启。参考阈值不是正式警戒标准，推演仍为演示。
 - 浏览器资料不跨设备自动同步，需导出 / 恢复工作空间。
@@ -77,8 +77,11 @@ python api/server.py --host 0.0.0.0 --port 8000
 
 ```bash
 python -m unittest discover -s tests -p test_rag_api.py -v
-node --test tests/web.test.mjs
+npm test
 python -m compileall -q app.py ui api scripts
 ```
 
 测试浏览器能验证路由、检索、引用、推演控制与设置；若其 WebGL 初始化不可用，三维视觉效果应记为尚未完成浏览器验证，不能用二维截图冒充已验证三维渲染。
+
+
+发布流水线在部署后还会启动真实 Chromium，检查公网构建版本、三维引擎、断面联动、水面指标、回放与手机布局，并保存浏览器检查截图。在线影像与地形状态单独记录，不能将本地模型渲染成功说成外部地图服务始终可用。

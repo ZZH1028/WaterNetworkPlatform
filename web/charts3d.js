@@ -13,7 +13,7 @@ function setup(el,{mini=false}={}){
  return {scene,camera,group,draw,target,setDistance(d){distance=d;},destroy(){observer.disconnect();scene.traverse(o=>{o.geometry?.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];for(const m of ms){m.map?.dispose();m.dispose();}}});renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}};
 }
 // A genuine 3D coordinate projection for browsers without a working GPU context.
-function softwareScene(el,{paths=[],cloud=[],plane=null,labels=[],mini=false}={}){
+export function softwareScene(el,{paths=[],cloud=[],plane=null,labels=[],mini=false}={}){
  const canvas=document.createElement('canvas');canvas.style.cssText='display:block;width:100%;height:100%;touch-action:none';el.prepend(canvas);const ctx=canvas.getContext('2d');let yaw=.55,pitch=.48,zoom=1,drag=false,lastX=0,lastY=0;
  function project(p,w,h){const ca=Math.cos(yaw),sa=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);const x=p[0]*ca-p[2]*sa;const z=p[0]*sa+p[2]*ca;const y=p[1]*cp-z*sp;const depth=p[1]*sp+z*cp;const scale=Math.min(w/135,h/(mini?55:100))*zoom*230/(230+depth);return [w*.5+x*scale,h*(mini?.77:.66)-y*scale];}
  function stroke(points,color,width=1){ctx.beginPath();for(let i=0;i<points.length;i++){const p=project(points[i],canvas.clientWidth,canvas.clientHeight);i?ctx.lineTo(...p):ctx.moveTo(...p);}ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}

@@ -1,6 +1,6 @@
 """Reproducible static build, including pinned, locally served browser libraries."""
 from __future__ import annotations
-import argparse, csv, gzip, hashlib, io, json, re, shutil, tarfile, urllib.request
+import argparse, base64, csv, gzip, hashlib, io, json, re, shutil, tarfile, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,13 +53,14 @@ def build(out: Path, vendor=True):
     digest=hashlib.sha256()
     for path in sorted((ROOT/'web').rglob('*')):
         if path.is_file():digest.update(path.relative_to(ROOT/'web').as_posix().encode());digest.update(path.read_bytes())
-    digest.update((out/'data/knowledge.json').read_bytes())
+    for data_path in sorted((out/'data').glob('*.json')):
+        digest.update(data_path.name.encode()); digest.update(data_path.read_bytes())
     revision=digest.hexdigest()[:12]
     for path in [*(out.glob('*.html')),*(out.glob('*.js')),*(out.glob('*.css'))]:
         content=path.read_text(encoding='utf-8')
         content=re.sub(r'''(["'])\./([A-Za-z0-9_./-]+\.(?:js|mjs|css|svg|png|json))\1''',lambda m:m[1]+'./'+m[2]+'?v='+revision+m[1],content)
         path.write_text(content,encoding='utf-8')
-    (out/'build.json').write_text(json.dumps({'revision':revision,'version':'2.1.0','theme':'midnight-blue-black'}),encoding='utf-8')
+    (out/'build.json').write_text(json.dumps({'revision':revision,'version':'2.2.0','theme':'midnight-blue-black'}),encoding='utf-8')
     (out/'.nojekyll').touch()
     if vendor:
         cache = ROOT/'.web-cache'
@@ -71,7 +72,21 @@ def build(out: Path, vendor=True):
                 print(f'Downloading {name} {version}', flush=True)
                 with urllib.request.urlopen(url, timeout=120) as response:
                     tgz.write_bytes(response.read())
+            expected = {
+                'cesium': '4OVlpds2TR6elsHLfVAp5FOqxjNbvKA7Ff5n3yuwDBFKgYgc6JErbpBSjY31pBI2ZJSWhKLknCNjrTR8FlVTFg==',
+                'three': 'Bgl2wPJypDOZ1stAxwfWAcJ0WQf7QzlptsxkjYiURPz+n5k4RBDLsq+6f9Y75TYxn6aHLcWz+JNmwTOXWrQTBQ==',
+                'pdfjs-dist': '/Y3fcFrXEAsMjJXeL9J8+ZG9U01LbuWaYypvDW2ycW1jL269L3js3DVBjDJ0Up9Np1uqDXsDrRihHANhZOlwdQ==',
+                'mammoth': '4S2v1eP4Yo4so0zGNicJKcP93su3wDPcUk+xvkjSG75nlNjSkDJu8BhWQ+e54BROM0HfA6nPzJn12S6bq2Ko6w==',
+            }
+            if base64.b64encode(hashlib.sha512(tgz.read_bytes()).digest()).decode() != expected[name]:
+                raise ValueError(f'{name} archive integrity verification failed')
             with tarfile.open(tgz) as tar:
+                if name == 'three':
+                    controls = tar.extractfile('package/examples/jsm/controls/OrbitControls.js').read().decode()
+                    controls = re.sub(r"from ['\"]three['\"]", "from './three.module.min.js'", controls)
+                    (out/'vendor').mkdir(exist_ok=True)
+                    (out/'vendor/OrbitControls.js').write_text(controls)
+
                 for member in tar.getmembers():
                     if not member.isfile(): continue
                     if prefix.endswith('/'):
