@@ -52,6 +52,9 @@ with sync_playwright() as p:
         page.locator('#station-results button').filter(has_text='河道').first.click()
         page.locator('#record-section').click()
         page.locator('#section-scene[data-renderer="webgl"] canvas').wait_for(state='visible',timeout=30000)
+        three_urls=page.evaluate("performance.getEntriesByType('resource').map(r=>r.name).filter(u=>new URL(u).pathname.endsWith('/three.module.min.js'))")
+        assert len(set(three_urls))==1,three_urls
+        checks['one_shared_three_module']=True
         assert page.locator('#river-select').input_value()=='伯渎港'
         checks['river_selection_links_to_matching_sections']=True
         page.locator('#river-select').select_option(label='九曲河')

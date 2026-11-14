@@ -51,6 +51,7 @@ def build(out: Path, vendor=True):
     (out/'data/knowledge.json').write_text(json.dumps(catalog,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     # Version all application URLs so previously opened Pages clients receive the new theme.
     digest=hashlib.sha256()
+    digest.update(Path(__file__).read_bytes())
     for path in sorted((ROOT/'web').rglob('*')):
         if path.is_file():digest.update(path.relative_to(ROOT/'web').as_posix().encode());digest.update(path.read_bytes())
     for data_path in sorted((out/'data').glob('*.json')):
@@ -83,7 +84,7 @@ def build(out: Path, vendor=True):
             with tarfile.open(tgz) as tar:
                 if name == 'three':
                     controls = tar.extractfile('package/examples/jsm/controls/OrbitControls.js').read().decode()
-                    controls = re.sub(r"from ['\"]three['\"]", "from './three.module.min.js'", controls)
+                    controls = re.sub(r"from ['\"]three['\"]", "from './three.module.min.js?v=" + revision + "'", controls)
                     (out/'vendor').mkdir(exist_ok=True)
                     (out/'vendor/OrbitControls.js').write_text(controls)
 
