@@ -110,6 +110,9 @@ with sync_playwright() as p:
 result={'base_url':base,'build':build,'checks':checks}
 (out/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
 print(json.dumps(result,ensure_ascii=False,indent=2))
+if os.environ.get('GITHUB_ACTIONS'):
+    health=checks['basemap_status']
+    print('::notice title=Published website verified::revision='+build['revision']+'; Cesium and measured section WebGL passed; imagery='+str(health['imagery'])+'; terrain='+str(health['terrain'])+'; desktop and mobile interactions passed')
 if os.environ.get('GITHUB_STEP_SUMMARY'):
     with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
         summary.write('Published-site browser checks passed.\n\n```json\n'+json.dumps(result,ensure_ascii=False,indent=2)+'\n```\n')
