@@ -55,14 +55,16 @@ jobs:
         id: deployment
   verify-public-site:
     needs: [build, deploy]
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04; ubuntu-latest now moves to 26.04.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: python -m pip install playwright==1.56.0
-      - run: python -m playwright install --with-deps chromium
+      - name: Install supported Chromium browser
+        run: python -m playwright install --with-deps chromium
       - name: Verify the deployed website and engineering model
         run: python tests/browser_smoke.py --url '${{ needs.deploy.outputs.page_url }}' --revision '${{ needs.build.outputs.revision }}' --out browser-results
       - uses: actions/upload-artifact@v4

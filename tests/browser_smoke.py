@@ -4,7 +4,7 @@ CI runs this against the published Pages URL. Local runs may select a system
 Chromium. TLS verification remains enabled; online basemap status is reported
 separately from the locally hosted engineering models.
 """
-import argparse,json,os,re,time,urllib.request
+import argparse,json,os,re,time,urllib.error,urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -17,9 +17,18 @@ args=parser.parse_args()
 out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
 base=args.url.rstrip('/')+'/'
 build=None
+readiness=[]
 for attempt in range(8):
-    with urllib.request.urlopen(base+'build.json?smoke='+str(time.time_ns()),timeout=30) as response:
-        build=json.load(response)
+    try:
+        with urllib.request.urlopen(base+'build.json?smoke='+str(time.time_ns()),timeout=30) as response:
+            build=json.load(response)
+        readiness.append({'attempt':attempt+1,'revision':build['revision']})
+    except (urllib.error.URLError,ValueError) as error:
+        readiness.append({'attempt':attempt+1,'error':str(error)})
+        (out/'readiness.json').write_text(json.dumps(readiness,indent=2))
+        if attempt==7:raise
+        time.sleep(5)
+        continue
     if not args.revision or build['revision']==args.revision:break
     time.sleep(5)
 else:raise AssertionError('Published build revision did not match expected revision')
@@ -90,9 +99,14 @@ with sync_playwright() as p:
     except Exception as error:
         page.screenshot(path=str(out/'failure.png'),full_page=True)
         (out/'failure.json').write_text(json.dumps({'build':build,'checks':checks,'error':str(error),'page_errors':errors,'failed_assets':failures,'page_url':page.url},ensure_ascii=False,indent=2))
+        if os.environ.get('GITHUB_ACTIONS'):
+            print('::error::'+str(error).replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
         raise
     finally:
         browser.close()
 result={'base_url':base,'build':build,'checks':checks}
 (out/'results.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
 print(json.dumps(result,ensure_ascii=False,indent=2))
+if os.environ.get('GITHUB_STEP_SUMMARY'):
+    with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
+        summary.write('Published-site browser checks passed.\n\n```json\n'+json.dumps(result,ensure_ascii=False,indent=2)+'\n```\n')
